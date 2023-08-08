@@ -8,8 +8,10 @@ import static com.codeborne.selenide.Selectors.*;
 import static com.codeborne.selenide.Selenide.*;
 import static com.codeborne.selenide.CollectionCondition.size;
 
+import static hu.itsolutions.vimeo.Properties.URL_MAIN;
+import static hu.itsolutions.vimeo.Properties.RESULTS_ON_ONE_PAGE;
+
 public class SearchPage {
-    public static final Integer RESULTS_ON_ONE_PAGE = 18;
     SelenideElement textFieldSearch = $(byId("topnav-search"));
     SelenideElement resultsCount = $(".results_count");
     SelenideElement paginationPanel = $(byId("pagination"));
@@ -17,54 +19,77 @@ public class SearchPage {
     SelenideElement buttonPaginationNext = $(byText("Next"));
 
 
+    @Step("Open url: {0}")
+    public SearchPage openUrl(String url) {
+        open(url);
+        return this;
+    }
 
-    public SearchPage openUrl() {
-        open("https://vimeo.com/watch");
+    @Step("Search for \"{0}\" and press ENTER")
+    private SearchPage insertSearch(String searchString) {
+        textFieldSearch.append(searchString).pressEnter();
         return new SearchPage();
     }
 
-    @Step("Search for \"{0}\"")
-    public SearchPage insertSearch(String text) {
-        textFieldSearch.append(text).pressEnter();
-        return new SearchPage();
-    }
-
-    private int getSearchResults (){
-        String text;
-        text = resultsCount.getText();
-        String[] parts = text.split(" ");
-        return Integer.parseInt(parts[0]);
-    }
-
-    public void getNumberOfResultsInOnePage(){
+    @Step("Check if number of results are exactly 18")
+    private void getNumberOfResultsInOnePage() {
         $$(".iris-annotation-layer").shouldHave(size(RESULTS_ON_ONE_PAGE));
     }
 
-    public void checkPaginationExists(){
-        if ( getSearchResults() > RESULTS_ON_ONE_PAGE ){
+    @Step("Check if pagination is available")
+    public SearchPage checkPaginationExists() {
+        if (getSearchResults() > RESULTS_ON_ONE_PAGE) {
             paginationPanel.should(exist);
         }
+        return this;
     }
 
-    @Step("Search video")
-    public void searchVideo(String text) {
-        insertSearch(text);
-        getNumberOfResultsInOnePage();
+    @Step("Search for video")
+    public SearchPage searchVideo(String text) {
+        insertSearch(text).getNumberOfResultsInOnePage();
+        return this;
     }
 
-    public void checkPaginationOnFirstPage(){
+    @Step("\"PREV\" button should be visible")
+    public SearchPage checkPrevButtonOnFirstPage() {
         buttonPaginationPrev.shouldNot(exist);
         buttonPaginationNext.should(exist);
+        return this;
     }
 
-    public void checkPaginationOnLastPage(){
-        int pages = (getSearchResults()/RESULTS_ON_ONE_PAGE)+1;
-        String stringPages = Integer.toString(pages);
-        open("https://vimeo.com/search/page:"+stringPages+"?q=courage+the+cowardly+dog");
-        buttonPaginationNext.shouldNot(exist);
-        buttonPaginationPrev.should(exist);
+    @Step("\"NEXT\" button should be visible")
+    public SearchPage checkNextButtonOnLastPage(String searchString) {
+        int lastPageNumber = openLastPageOfResults(searchString);
+        if (lastPageNumber > 1) {
+            buttonPaginationNext.shouldNot(exist);
+            buttonPaginationPrev.should(exist);
+        }
+        return this;
     }
 
+    @Step("Both \"PREV\" and \"NEXT\" buttons should be visible")
+    public SearchPage checkPrevAndNextButtons(String searchString) {
+        if (getSearchResults() > 36){
+            openPageOfSearchResult(2, searchString);
+            buttonPaginationNext.should(exist);
+            buttonPaginationPrev.should(exist);
+        }
+        return this;
+    }
 
+    private int getSearchResults() {
+        String text = resultsCount.getText();
+        return Integer.parseInt(text.split(" ")[0]);
+    }
+
+    private int openLastPageOfResults(String searchString) {
+        int lastPageNumber = (getSearchResults() / RESULTS_ON_ONE_PAGE) + 1;
+        openPageOfSearchResult(lastPageNumber, searchString);
+        return lastPageNumber;
+    }
+
+    private void openPageOfSearchResult(int pageNumber, String searchString){
+        open(URL_MAIN + "search/page:" + pageNumber + "?q=" + searchString.replace(" ", "+"));
+    }
 
 }
